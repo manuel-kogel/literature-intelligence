@@ -34,3 +34,11 @@ python -m streamlit run app.py
 - OpenAlex-Kontingente können sich ändern; API-Key und Limits: https://help.openalex.org/api/authentication/
 - Kein vollständiges systematisches Review. Suche, Datum, Ausschlüsse und manuelle Codierung gesondert dokumentieren.
 - Öffentliche Cloud-Apps sind nicht als sicherer Speicher für vertrauliche Forschungsdaten vorgesehen.
+
+## V0.3: optionales KI-Screening
+
+Nach einer OpenAlex-Recherche kann das Tool ausgewählte Titel und Abstracts über die OpenAI Responses API prüfen. Hierfür ist ein **separater OpenAI-API-Key mit aktiver Abrechnung** nötig (ChatGPT Plus reicht nicht). Der Key wird ausschließlich im passwortgeschützten Eingabefeld der Streamlit-Sitzung verwendet und nicht im Repository abgelegt. Die API verarbeitet die eingesandten Titel und Abstracts; keine Volltexte oder PDFs. Kosten hängen vom gewählten Modell und Tokenverbrauch ab. Zunächst nur 3–5 Artikel prüfen.
+
+Die Auswertung enthält KI-Relevanz, Kategorie, Hypothesenbezug (keine Befundbestätigung), Studiendesign, Begründung, wörtlichen Textbeleg und Unsicherheit. Der Textbeleg wird gegen den übergebenen Text validiert. Keine KI-Auswertung ersetzt die Lektüre des Originals.
+
+**Update des bestehenden GitHub-Repositories:** `app.py`, `ai_review.py`, `test_ai_review.py` und `README.md` im Repository-Hauptverzeichnis hochladen bzw. ersetzen. `requirements.txt` bleibt unverändert. Streamlit stellt nach dem Commit automatisch neu bereit.

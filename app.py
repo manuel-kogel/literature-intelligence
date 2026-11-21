@@ -10,6 +10,7 @@ from collections import Counter
 import pandas as pd
 import requests
 import streamlit as st
+from ai_review import review_paper
 
 BASE = "https://api.openalex.org/works"
 DEFAULT_QUERIES = [
@@ -204,8 +205,8 @@ st.markdown("""<style>
 }
 </style>""", unsafe_allow_html=True)
 st.title("Literature Intelligence")
-st.caption("Literaturrecherche für die Masterarbeit · Mobile V0.2 · Metadatensuche, kein PDF-Scraping")
-st.info("Bewertungen sind transparente Schlagwort-Heuristiken, **keine KI-Inhaltsanalyse**. Abstracts können fehlen. Bitte jeden relevanten Treffer wissenschaftlich überprüfen.")
+st.caption("Literaturrecherche für die Masterarbeit · Mobile V0.3 · Metadatensuche, kein PDF-Scraping")
+st.info("Die Standardbewertung ist heuristisch. Optional kannst du eine **KI-Analyse von Titeln und Abstracts** durchführen. KI-Aussagen sind keine verifizierten Studienbefunde; überprüfe die Originaltexte.")
 with st.expander("⚙️ Einstellungen & API-Zugang", expanded=False):
     st.caption("Diese Einstellungen sind auch auf dem iPhone direkt erreichbar.")
     default_key = os.getenv("OPENALEX_API_KEY", "")
@@ -259,5 +260,37 @@ if "results" in st.session_state:
     with right:
         st.download_button("RIS für Zotero", use_container_width=True, data=export_ris(filtered), file_name="literature_results.ris", mime="application/x-research-info-systems")
     st.caption("Die Suchabdeckung ist nicht systematisch vollständig. Relevanzscores beruhen auf Titel/Abstract, nicht auf der Prüfung eines Volltextes.")
+    st.divider()
+    st.subheader("KI-Abstract-Screening (optional)")
+    st.caption("OpenAI-API ist ein separater, potenziell kostenpflichtiger Dienst. Dein ChatGPT-Abo beinhaltet keine API-Nutzung. Es werden Titel und Abstracts an OpenAI übermittelt, keine PDFs. Der Schlüssel wird nicht in GitHub gespeichert.")
+    ai_key = st.text_input("OpenAI API-Key", type="password", key="ai_key", help="Nur hier eingeben, niemals in GitHub eintragen oder weitergeben.")
+    model = st.selectbox("KI-Modell", ["gpt-4.1-mini", "gpt-4.1-nano"], index=0)
+    limit = st.slider("Maximal zu analysierende Artikel", 1, 30, 5, 1)
+    only_abstracts = st.checkbox("Nur Artikel mit Abstract", value=True)
+    st.caption("Es werden die höchstplatzierten Artikel der aktuellen Filterung analysiert. Starte zunächst mit 3–5 Artikeln, um die Kosten zu begrenzen. Die API berechnet nach Tokenverbrauch, nicht nach der Anzahl angezeigter Artikel.")
+    candidates = filtered[filtered["Abstract"].fillna("").str.strip().ne("")] if only_abstracts else filtered
+    if st.button("KI-Analyse starten", disabled=not bool(ai_key.strip()) or candidates.empty):
+        selected = candidates.head(limit)
+        reviewed = []
+        failures = []
+        bar = st.progress(0)
+        for index, (_, paper) in enumerate(selected.iterrows()):
+            try:
+                review = review_paper(str(paper["Titel"]), str(paper["Abstract"] or ""), ai_key, model)
+                reviewed.append({"Titel": paper["Titel"], "DOI": paper["DOI"], **review})
+            except (requests.RequestException, ValueError, KeyError) as error:
+                failures.append(f"{paper['Titel']}: {str(error)[:180]}")
+            bar.progress((index + 1) / len(selected))
+        st.session_state['ai_reviews'] = pd.DataFrame(reviewed)
+        st.session_state['ai_failures'] = failures
+    if 'ai_reviews' in st.session_state:
+        for error in st.session_state.get('ai_failures', []):
+            st.warning(error)
+        ai_df = st.session_state['ai_reviews']
+        if not ai_df.empty:
+            st.dataframe(ai_df, use_container_width=True, hide_index=True)
+            st.download_button("KI-Screening als CSV", data=ai_df.to_csv(index=False).encode('utf-8-sig'), file_name='abstract_screening.csv', mime='text/csv')
+            st.caption("Hypothesenlabels zeigen nur thematische Anschlussfähigkeit, keine empirische Bestätigung. Zitate werden gegen den gelieferten Text geprüft; die Interpretation bleibt prüfpflichtig.")
+
 else:
     st.caption("Suchanfragen bearbeiten und auf „Literatur recherchieren“ klicken. Die Anwendung kontaktiert dann OpenAlex.")
