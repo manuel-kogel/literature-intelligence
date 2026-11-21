@@ -39,8 +39,19 @@ def review_paper(title, abstract, api_key, model='gpt-4.1-mini'):
     response = requests.post(ENDPOINT, json=payload,
                              headers={'Authorization': f'Bearer {api_key.strip()}', 'Content-Type': 'application/json'},
                              timeout=50)
-    response.raise_for_status()
-    result = response.json()
+    if not response.ok:
+    try:
+        error = response.json().get("error", {})
+        message = error.get("message", "Unbekannter API-Fehler")
+        code = error.get("code", "Keine Fehlerkennung")
+    except ValueError:
+        message = "Keine auswertbare Fehlermeldung"
+        code = "Unbekannt"
+
+    raise ValueError(
+        f"OpenAI API-Fehler {response.status_code}: "
+        f"{message} (Code: {code})"
+    )
     chunks = [part.get('text', '') for item in result.get('output', [])
               for part in item.get('content', []) if part.get('type') == 'output_text']
     if not chunks:
