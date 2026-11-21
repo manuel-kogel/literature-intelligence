@@ -52,6 +52,7 @@ def review_paper(title, abstract, api_key, model='gpt-4.1-mini'):
         f"OpenAI API-Fehler {response.status_code}: "
         f"{message} (Code: {code})"
     )
+    result = response.json()
     chunks = [part.get('text', '') for item in result.get('output', [])
               for part in item.get('content', []) if part.get('type') == 'output_text']
     if not chunks:
